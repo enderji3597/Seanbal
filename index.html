@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>예발(소가낳음)</title>
+    <style>
+        body {
+            height: 100vh;
+            margin: 0;
+            overflow: hidden; 
+            background-color: white; 
+            font-family: 'Malgun Gothic', sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; 
+            align-items: center; 
+            position: relative; 
+        }
+
+        #yebal-btn {
+            padding: 25px 50px;
+            font-size: 2em;
+            cursor: pointer;
+            background-color: white; 
+            color: black; 
+            border: 3px solid black; 
+            border-radius: 15px;
+            position: relative; 
+            z-index: 15; 
+            transition: background-color 0.1s, transform 0.1s;
+        }
+        #yebal-btn:active {
+            transform: translateY(2px);
+            box-shadow: none;
+        }
+
+        /* 소 이모티콘 스타일 */
+        #cow-source {
+            position: absolute; 
+            bottom: 10%; 
+            left: 15%; 
+            font-size: 15em; 
+            z-index: 10; 
+            pointer-events: none; 
+            /* transform: scaleX(-1); // 좌우 반전 제거, 기본 방향이 오른쪽이므로 */
+        }
+
+        #game-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; 
+            z-index: 5; 
+        }
+
+        .yebal-text {
+            position: absolute;
+            font-size: 1.5em; 
+            font-weight: bold;
+            color: #2ecc71; 
+            white-space: nowrap; 
+            opacity: 1; 
+            transition: opacity 2s ease-out, transform 0s linear; 
+        }
+    </style>
+</head>
+<body>
+    
+    <div id="cow-source">🐄</div>
+    <button id="yebal-btn">예발!</button>
+    <div id="game-area"></div>
+
+    <script>
+        const yebalButton = document.getElementById('yebal-btn');
+        const cowSource = document.getElementById('cow-source'); 
+        const gameArea = document.getElementById('game-area');
+        const yebalText = '예발!';
+
+        const yebals = []; 
+        let spawnIntervalId = null; 
+        const SPAWN_RATE = 100; 
+
+        // 예발 글자의 초기 발사 속도
+        const MIN_INITIAL_VX = 15; // 오른쪽으로 더 강하게 발사
+        const MAX_INITIAL_VX = 25;
+
+        const MIN_INITIAL_VY = -2; // 수직 편차 최소화
+        const MAX_INITIAL_VY = 2;
+
+        const GRAVITY = 0; // 중력 효과 제거 (거의 일직선으로 날아가도록)
+        const UPDATE_INTERVAL = 10; 
+
+        let gameLoop = setInterval(updateYebals, UPDATE_INTERVAL);
+
+        /**
+         * '예발' 글자 객체를 생성하고 배열에 추가합니다.
+         */
+        function spawnYebal() {
+            const rect = cowSource.getBoundingClientRect();
+            
+            const newYebal = document.createElement('span');
+            newYebal.textContent = yebalText;
+            newYebal.classList.add('yebal-text');
+            
+            // 초기 위치: 소 이모티콘의 입 부분 (대략적인 위치 계산)
+            // 소 이모티콘의 크기와 위치를 고려하여 조정
+            // 소 이모티콘이 오른쪽을 바라보는 기본 방향이므로, left 기준으로 75% 지점이 입 쪽
+            const initialX = rect.left + rect.width * 0.75; // 입 쪽 (오른쪽 3/4 지점)
+            const initialY = rect.top + rect.height * 0.4; // 소 얼굴 높이 (입 근처)
+
+            newYebal.style.visibility = 'hidden';
+            gameArea.appendChild(newYebal);
+            const yebalWidth = newYebal.offsetWidth;
+            const yebalHeight = newYebal.offsetHeight;
+            newYebal.style.visibility = 'visible';
+
+            // 속도 계산: 주로 오른쪽(양수 X)으로 강하게 발사, 수직 편차 최소화
+            const initialVx = Math.random() * (MAX_INITIAL_VX - MIN_INITIAL_VX) + MIN_INITIAL_VX;
+            const initialVy = (Math.random() - 0.5) * (MAX_INITIAL_VY - MIN_INITIAL_VY) * 2;
+            
+            const yebalData = {
+                element: newYebal,
+                x: initialX - yebalWidth / 2, 
+                y: initialY - yebalHeight / 2, 
+                vx: initialVx, 
+                vy: initialVy,
+                width: yebalWidth, 
+                height: yebalHeight,
+                age: 0, 
+                maxAge: 300 
+            };
+
+            yebals.push(yebalData);
+        }
+
+        /**
+         * 모든 예발 글자의 위치를 업데이트하고 중력 효과 및 사라짐을 처리합니다.
+         */
+        function updateYebals() {
+            const screenWidth = window.innerWidth;
+
+            for (let i = yebals.length - 1; i >= 0; i--) {
+                const t = yebals[i];
+                
+                t.vy += GRAVITY; // 중력이 0이므로 실제로는 적용되지 않음
+
+                t.x += t.vx;
+                t.y += t.vy;
+
+                if (t.x > screenWidth + t.width) { 
+                    t.element.remove();
+                    yebals.splice(i, 1);
+                    continue; 
+                }
+
+                t.age++;
+                if (t.age > t.maxAge / 2) { 
+                    const opacity = 1 - ((t.age - t.maxAge / 2) / (t.maxAge / 2));
+                    t.element.style.opacity = Math.max(0, opacity); 
+                }
+                
+                t.element.style.left = t.x + 'px';
+                t.element.style.top = t.y + 'px';
+            }
+        }
+
+        /* * 버튼 누름 상태 감지 로직 * */
+        
+        const startSpawning = () => {
+             if (spawnIntervalId === null) {
+                spawnYebal();
+                spawnIntervalId = setInterval(spawnYebal, SPAWN_RATE);
+            }
+        };
+
+        const stopSpawning = () => {
+            if (spawnIntervalId !== null) {
+                clearInterval(spawnIntervalId);
+                spawnIntervalId = null;
+            }
+        };
+
+        yebalButton.addEventListener('mousedown', startSpawning);
+        document.addEventListener('mouseup', stopSpawning);
+        
+        yebalButton.addEventListener('touchstart', (e) => {
+            e.preventDefault(); 
+            startSpawning();
+        });
+        document.addEventListener('touchend', stopSpawning);
+    </script>
+</body>
+</html>
